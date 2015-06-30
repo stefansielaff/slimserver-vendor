@@ -292,6 +292,15 @@ if [ $PERL_520 ]; then
     PERL_ARCH=$BUILD/arch/5.20
 fi
 
+# defined on the command line - no detection yet
+if [ $PERL_522 ]; then
+    echo "Building with Perl 5.22 at $PERL_522"
+    PERL_BIN=$PERL_522
+    # Install dir for 5.22
+    PERL_BASE=$BUILD/5.22
+    PERL_ARCH=$BUILD/arch/5.22
+fi
+
 # try to use default perl version
 if [ "$PERL_BIN" = "" ]; then
     PERL_BIN=`which perl`
@@ -318,6 +327,9 @@ if [ "$PERL_BIN" = "" ]; then
         ;;
     "5.20")
         PERL_520=$PERL_BIN
+        ;;
+    "5.22")
+        PERL_522=$PERL_BIN
         ;;
     *)
         echo "Failed to find supported Perl version for '$PERL_BIN'"
@@ -484,7 +496,7 @@ function build {
             ;;
         
         Class::XSAccessor)
-            if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" ]; then
+            if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module Class-XSAccessor-1.18
             else
                 build_module Class-XSAccessor-1.05
@@ -498,7 +510,7 @@ function build {
             ;;
         
         DBI)
-            if [ "$PERL_518" -o "$PERL_520" ]; then
+            if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module DBI-1.628
             else
                 build_module DBI-1.616
@@ -506,7 +518,7 @@ function build {
             ;;
         
         DBD::SQLite)
-            if [ "$PERL_518" -o "$PERL_520" ]; then
+            if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module DBI-1.628 "" 0
             else
                 build_module DBI-1.616 "" 0
@@ -592,7 +604,7 @@ function build {
                 rm -rf DBD-SQLite-1.34_01
             else
                 cd ..
-                if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" ]; then
+                if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                    build_module DBD-SQLite-1.34_01 "" 0
                 fi
                 build_module DBD-SQLite-1.34_01
@@ -674,7 +686,7 @@ function build {
         JSON::XS)
             build_module common-sense-2.0
             
-            if [ "$PERL_518" -o "$PERL_520" ]; then
+            if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module JSON-XS-2.34
             else
                 build_module JSON-XS-2.3
@@ -703,7 +715,7 @@ function build {
             ;;
         
         YAML::LibYAML)
-            if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" ]; then
+            if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module YAML-LibYAML-0.35 "" 0
             else
                 build_module YAML-LibYAML-0.35
@@ -1362,7 +1374,7 @@ find $BUILD -name '*.packlist' -exec rm -f {} \;
 
 # create our directory structure
 # rsync is used to avoid copying non-binary modules or other extra stuff
-if [ "$PERL_512" -o "$PERL_514" -o "$PERL_516" -o "$PERL_518" -o "$PERL_520" ]; then
+if [ "$PERL_512" -o "$PERL_514" -o "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
     # Check for Perl using use64bitint and add -64int
     ARCH=`$PERL_BIN -MConfig -le 'print $Config{archname}' | sed 's/gnu-//' | sed 's/^i[3456]86-/i386-/' | sed 's/armv5tejl/arm/' `
 fi
