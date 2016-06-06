@@ -79,7 +79,7 @@ OS=`uname`
 MACHINE=`uname -m`
 
 # get system arch, stripping out extra -gnu on Linux
-ARCH=`/usr/bin/perl -MConfig -le 'print $Config{archname}' | sed 's/gnu-//' | sed 's/^i[3456]86-/i386-/' | sed 's/armv5tejl/arm/' `
+ARCH=`/usr/bin/perl -MConfig -le 'print $Config{archname}' | sed 's/gnu-//' | sed 's/^i[3456]86-/i386-/' | sed 's/armv.*?-/arm-/' `
 
 if [ "$OS" = "Linux" -o "$OS" = "Darwin" -o "$OS" = "FreeBSD" ]; then
     echo "Building for $OS / $ARCH"
@@ -139,7 +139,7 @@ OSX_ARCH=
 if [ "$OS" = "Darwin" ]; then
     OSX_VER=`/usr/sbin/system_profiler SPSoftwareDataType`
     REGEX=' OS X.* (10\.[5-9])'
-    REGEX2=' OS X.* (10\.1[0])'
+    REGEX2=' OS X.* (10\.1[0-9])'
 
     if [[ $OSX_VER =~ $REGEX ]]; then
         OSX_VER=${BASH_REMATCH[1]}
@@ -292,7 +292,15 @@ if [ $PERL_520 ]; then
     PERL_ARCH=$BUILD/arch/5.20
 fi
 
+<<<<<<< HEAD
 # defined on the command line - no detection yet
+=======
+# Path to Perl 5.22
+if [ -x "/usr/bin/perl5.22.1" ]; then
+    PERL_522=/usr/bin/perl5.22.1
+fi
+
+>>>>>>> refs/remotes/Logitech/public/7.9
 if [ $PERL_522 ]; then
     echo "Building with Perl 5.22 at $PERL_522"
     PERL_BIN=$PERL_522
@@ -364,7 +372,7 @@ if [ $CLEAN -eq 1 ]; then
     rm -rf $BUILD/arch
 fi
 
-mkdir -p $BUILD
+mkdir -p $PERL_ARCH
 
 # $1 = args
 # $2 = file
@@ -498,6 +506,7 @@ function build {
         Class::XSAccessor)
             if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module Class-XSAccessor-1.18
+                cp -pR $PERL_BASE/lib/perl5/$ARCH/Class $PERL_ARCH/
             else
                 build_module Class-XSAccessor-1.05
             fi
@@ -506,12 +515,15 @@ function build {
         Compress::Raw::Zlib)
             if [ "$PERL_58" -o "$PERL_510" ]; then
 	            build_module Compress-Raw-Zlib-2.033
+                    cp -pR $PERL_BASE/lib/perl5/$ARCH/Compress $PERL_ARCH/
             fi
             ;;
         
         DBI)
             if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module DBI-1.628
+                cp -p $PERL_BASE/lib/perl5/$ARCH/DBI.pm $PERL_ARCH/
+                cp -pR $PERL_BASE/lib/perl5/$ARCH/DBI $PERL_ARCH/
             else
                 build_module DBI-1.616
             fi
@@ -658,12 +670,12 @@ function build {
             # build Image::Scale
             build_module Test-NoWarnings-1.02 "" 0
 
-            tar_wrapper zxvf Image-Scale-0.08.tar.gz
-            cd Image-Scale-0.08
+            tar_wrapper zxvf Image-Scale-0.11.tar.gz
+            cd Image-Scale-0.11
             cp -Rv ../hints .
             cd ..
             
-            build_module Image-Scale-0.08 "--with-jpeg-includes="$BUILD/include" --with-jpeg-static \
+            build_module Image-Scale-0.11 "--with-jpeg-includes="$BUILD/include" --with-jpeg-static \
                     --with-png-includes="$BUILD/include" --with-png-static \
                     --with-gif-includes="$BUILD/include" --with-gif-static \
                     INSTALL_BASE=$PERL_BASE"
@@ -688,6 +700,7 @@ function build {
             
             if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
                 build_module JSON-XS-2.34
+                cp -pR $PERL_BASE/lib/perl5/$ARCH/JSON $PERL_ARCH/
             else
                 build_module JSON-XS-2.3
             fi
@@ -1376,7 +1389,7 @@ find $BUILD -name '*.packlist' -exec rm -f {} \;
 # rsync is used to avoid copying non-binary modules or other extra stuff
 if [ "$PERL_512" -o "$PERL_514" -o "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
     # Check for Perl using use64bitint and add -64int
-    ARCH=`$PERL_BIN -MConfig -le 'print $Config{archname}' | sed 's/gnu-//' | sed 's/^i[3456]86-/i386-/' | sed 's/armv5tejl/arm/' `
+    ARCH=`$PERL_BIN -MConfig -le 'print $Config{archname}' | sed 's/gnu-//' | sed 's/^i[3456]86-/i386-/' | sed 's/armv.*?-/arm-/' `
 fi
 mkdir -p $PERL_ARCH/$ARCH
 rsync -amv --include='*/' --include='*.so' --include='*.bundle' --include='autosplit.ix' --exclude='*' $PERL_BASE/lib/perl5/*/auto $PERL_ARCH/$ARCH/
