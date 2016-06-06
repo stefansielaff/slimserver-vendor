@@ -3,34 +3,7 @@
 # $Id$
 #
 # This script builds all binary Perl modules required by Squeezebox Server.
-# 
-# Supported OSes:
-#
-# Linux (Perl 5.8.8, 5.10.0, 5.12.4, 5.14.1, 5.16.3)
-#   i386/x86_64 Linux
-#   ARM Linux
-#   PowerPC Linux
-#   Sparc Linux (ReadyNAS)
-# Mac OSX
-#   Under 10.5, builds Universal Binaries for i386/ppc Perl 5.8.8
-#   Under 10.6, builds Universal Binaries for i386/x86_64 Perl 5.10.0
-#   Under 10.7, builds for x86_64 Perl 5.12.3 (Lion does not support 32-bit CPUs)
-#   Under 10.9, builds for x86_64 Perl 5.16
-#   Under 10.10, builds for x86_64 Perl 5.18
-# FreeBSD 7.2 (Perl 5.8.9)
-# FreeBSD 8.X,9.X (Perl 5.12.4)
-#
-# Perl 5.12.4/5.14.1 note:
-#   You should build 5.12.4 using perlbrew and the following command. GCC's stack protector must be disabled
-#   so the binaries will not be dynamically linked to libssp.so which is not available on some distros.
-#   NOTE: On 32-bit systems for 5.12 and higher, -D use64bitint should be used. Debian Wheezy (the next release) will
-#   use Perl 5.12.4 with use64bitint enabled, and hopefully other major distros will follow suit.
-#
-#     perlbrew install perl-5.12.4 -D usethreads -D use64bitint -A ccflags=-fno-stack-protector -A ldflags=-fno-stack-protector
-#
-#   For 64-bit native systems, use:
-#
-#     perlbrew install perl-5.12.4 -D usethreads -A ccflags=-fno-stack-protector -A ldflags=-fno-stack-protector
+# Stripped down Arch Linux fork for the AUR
 #
 
 # Require modules to pass tests
@@ -81,7 +54,7 @@ MACHINE=`uname -m`
 # get system arch, stripping out extra -gnu on Linux
 ARCH=`/usr/bin/perl -MConfig -le 'print $Config{archname}' | sed 's/gnu-//' | sed 's/^i[3456]86-/i386-/' | sed 's/armv.*?-/arm-/' `
 
-if [ "$OS" = "Linux" -o "$OS" = "Darwin" -o "$OS" = "FreeBSD" ]; then
+if [ "$OS" = "Linux" -o "$OS" = "FreeBSD" ]; then
     echo "Building for $OS / $ARCH"
 else
     echo "Unsupported platform: $OS, please submit a patch or provide us with access to a development system."
@@ -132,182 +105,10 @@ if [ $? -eq 0 ] ; then
     echo "ON SOME PLATFORMS (Ubuntu/Debian at least) THE ABOVE LIBRARIES MAY NEED TO BE TEMPORARILY REMOVED TO ALLOW THE BUILD TO WORK"
 fi
 
-# figure out OSX version and customize SDK options
-OSX_VER=
-OSX_FLAGS=
-OSX_ARCH=
-if [ "$OS" = "Darwin" ]; then
-    OSX_VER=`/usr/sbin/system_profiler SPSoftwareDataType`
-    REGEX=' OS X.* (10\.[5-9])'
-    REGEX2=' OS X.* (10\.1[0-9])'
-
-    if [[ $OSX_VER =~ $REGEX ]]; then
-        OSX_VER=${BASH_REMATCH[1]}
-    elif [[ $OSX_VER =~ $REGEX2 ]]; then
-        OSX_VER=${BASH_REMATCH[1]}
-    else
-        echo "Unable to determine OSX version"
-        exit 0
-    fi
-    
-    if [ "$OSX_VER" = "10.5" ]; then
-        # Leopard, build for i386/ppc with support back to 10.4
-        OSX_ARCH="-arch i386 -arch ppc"
-        OSX_FLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4"
-    elif [ "$OSX_VER" = "10.6" ]; then
-        # Snow Leopard, build for x86_64/i386 with support back to 10.5
-        OSX_ARCH="-arch x86_64 -arch i386"
-        OSX_FLAGS="-isysroot /Developer/SDKs/MacOSX10.5.sdk -mmacosx-version-min=10.5"
-    elif [ "$OSX_VER" = "10.7" ]; then
-        # Lion, build for x86_64 with support back to 10.6
-        OSX_ARCH="-arch x86_64"
-        OSX_FLAGS="-isysroot /Developer/SDKs/MacOSX10.6.sdk -mmacosx-version-min=10.6"
-    elif [ "$OSX_VER" = "10.9" ]; then
-        # Mavericks, build for x86_64 with support back to 10.9
-        OSX_ARCH="-arch x86_64"
-        OSX_FLAGS="-mmacosx-version-min=10.9"
-    elif [ "$OSX_VER" = "10.10" ]; then
-        # Yosemite, build for x86_64 with support back to 10.10
-        OSX_ARCH="-arch x86_64"
-        OSX_FLAGS="-mmacosx-version-min=10.10"
-    fi
-fi
-
 # Build dir
 BUILD=$PWD/build
 PERL_BASE=$BUILD/perl5x
 PERL_ARCH=$BUILD/arch/perl5x
-
-# Path to Perl 5.8.8
-if [ -x "/usr/bin/perl5.8.8" ]; then
-    PERL_58=/usr/bin/perl5.8.8
-elif [ -x "/usr/local/bin/perl5.8.8" ]; then
-    PERL_58=/usr/local/bin/perl5.8.8
-elif [ -x "$HOME/perl5/perlbrew/perls/perl-5.8.9/bin/perl5.8.9" ]; then
-    PERL_58=$HOME/perl5/perlbrew/perls/perl-5.8.9/bin/perl5.8.9
-elif [ -x "/usr/local/bin/perl5.8.9" ]; then # FreeBSD 7.2
-    PERL_58=/usr/local/bin/perl5.8.9
-fi
-
-if [ $PERL_58 ]; then
-    echo "Building with Perl 5.8.x at $PERL_58"
-    PERL_BIN=$PERL_58
-    # Install dir for 5.8
-    PERL_BASE=$BUILD/5.8
-    PERL_ARCH=$BUILD/arch/5.8
-fi
-
-
-# Path to Perl 5.10.0
-if [ -x "/usr/bin/perl5.10.0" ]; then
-    PERL_510=/usr/bin/perl5.10.0
-elif [ -x "/usr/local/bin/perl5.10.0" ]; then
-    PERL_510=/usr/local/bin/perl5.10.0
-elif [ -x "/usr/local/bin/perl5.10.1" ]; then # FreeBSD 8.2
-    PERL_510=/usr/local/bin/perl5.10.1
-fi
-
-if [ $PERL_510 ]; then
-    echo "Building with Perl 5.10 at $PERL_510"
-    PERL_BIN=$PERL_510
-    # Install dir for 5.10
-    PERL_BASE=$BUILD/5.10
-    PERL_ARCH=$BUILD/arch/5.10
-fi
-
-# Path to Perl 5.12
-if [ "$OSX_VER" = "10.9" ]; then
-    echo "Ignoring Perl 5.12 - we want 5.16 on Mavericks"
-elif [ -x "/usr/bin/perl5.12.4" ]; then
-    PERL_512=/usr/bin/perl5.12.4
-elif [ -x "/usr/local/bin/perl5.12.4" ]; then
-    PERL_512=/usr/local/bin/perl5.12.4
-elif [ -x "/usr/local/bin/perl5.12.4" ]; then # Also FreeBSD 8.2
-    PERL_512=/usr/local/bin/perl5.12.4
-elif [ -x "$HOME/perl5/perlbrew/perls/perl-5.12.4/bin/perl5.12.4" ]; then
-    PERL_512=$HOME/perl5/perlbrew/perls/perl-5.12.4/bin/perl5.12.4
-elif [ -x "/usr/bin/perl5.12" ]; then
-    # OSX Lion uses this path
-    PERL_512=/usr/bin/perl5.12
-fi
-
-if [ $PERL_512 ]; then
-    echo "Building with Perl 5.12 at $PERL_512"
-    PERL_BIN=$PERL_512
-    # Install dir for 5.12
-    PERL_BASE=$BUILD/5.12
-    PERL_ARCH=$BUILD/arch/5.12
-fi
-
-# Path to Perl 5.14.1
-if [ -x "$HOME/perl5/perlbrew/perls/perl-5.14.1/bin/perl5.14.1" ]; then
-    PERL_514=$HOME/perl5/perlbrew/perls/perl-5.14.1/bin/perl5.14.1
-fi
-
-if [ $PERL_514 ]; then
-    echo "Building with Perl 5.14 at $PERL_514"
-    PERL_BIN=$PERL_514
-    # Install dir for 5.14
-    PERL_BASE=$BUILD/5.14
-    PERL_ARCH=$BUILD/arch/5.14
-fi
-
-# Path to Perl 5.16
-if [ "$OSX_VER" = "10.10" ]; then
-    echo "Ignoring Perl 5.16 - we want 5.18 on Yosemite"
-elif [ -x "/usr/bin/perl5.16" ]; then
-    PERL_516=/usr/bin/perl5.16
-elif [ -x "/usr/bin/perl5.16.3" ]; then
-    PERL_516=/usr/bin/perl5.16.3
-fi
-
-if [ $PERL_516 ]; then
-    echo "Building with Perl 5.16 at $PERL_516"
-    PERL_BIN=$PERL_516
-    # Install dir for 5.16
-    PERL_BASE=$BUILD/5.16
-    PERL_ARCH=$BUILD/arch/5.16
-fi
-
-# Path to Perl 5.18
-if [ -x "/usr/bin/perl5.18" ]; then
-    PERL_518=/usr/bin/perl5.18
-fi
-
-# defined on the command line - no detection yet
-if [ $PERL_518 ]; then
-    echo "Building with Perl 5.18 at $PERL_518"
-    PERL_BIN=$PERL_518
-    # Install dir for 5.18
-    PERL_BASE=$BUILD/5.18
-    PERL_ARCH=$BUILD/arch/5.18
-fi
-
-# defined on the command line - no detection yet
-if [ $PERL_520 ]; then
-    echo "Building with Perl 5.20 at $PERL_520"
-    PERL_BIN=$PERL_520
-    # Install dir for 5.20
-    PERL_BASE=$BUILD/5.20
-    PERL_ARCH=$BUILD/arch/5.20
-fi
-
-<<<<<<< HEAD
-# defined on the command line - no detection yet
-=======
-# Path to Perl 5.22
-if [ -x "/usr/bin/perl5.22.1" ]; then
-    PERL_522=/usr/bin/perl5.22.1
-fi
-
->>>>>>> refs/remotes/Logitech/public/7.9
-if [ $PERL_522 ]; then
-    echo "Building with Perl 5.22 at $PERL_522"
-    PERL_BIN=$PERL_522
-    # Install dir for 5.22
-    PERL_BASE=$BUILD/5.22
-    PERL_ARCH=$BUILD/arch/5.22
-fi
 
 # try to use default perl version
 if [ "$PERL_BIN" = "" ]; then
@@ -315,21 +116,6 @@ if [ "$PERL_BIN" = "" ]; then
     PERL_VERSION=`perl -MConfig -le '$Config{version} =~ /(\d+.\d+)\./; print $1'`
     
     case "$PERL_VERSION" in
-    "5.8")
-        PERL_58=$PERL_BIN
-        ;;
-    "5.10")
-        PERL_510=$PERL_BIN
-        ;;
-    "5.12")
-        PERL_512=$PERL_BIN
-        ;;
-    "5.14")
-        PERL_514=$PERL_BIN
-        ;;
-    "5.16")
-        PERL_516=$PERL_BIN
-        ;;
     "5.18")
         PERL_518=$PERL_BIN
         ;;
@@ -338,6 +124,9 @@ if [ "$PERL_BIN" = "" ]; then
         ;;
     "5.22")
         PERL_522=$PERL_BIN
+        ;;
+    "5.24")
+        PERL_524=$PERL_BIN
         ;;
     *)
         echo "Failed to find supported Perl version for '$PERL_BIN'"
@@ -443,14 +232,12 @@ function build_module {
 
 function build_all {
     build Audio::Scan
-    build Class::C3::XS
     build Class::XSAccessor
-    build Compress::Raw::Zlib
     build DBI
 #   build DBD::mysql
     build DBD::SQLite
-    build Digest::SHA1
-    build EV
+##    build Digest::SHA1
+##    build EV
     build Encode::Detect
     build HTML::Parser
     # XXX - Image::Scale requires libjpeg-turbo - which requires nasm 2.07 or later (install from http://www.macports.org/)
@@ -459,7 +246,6 @@ function build_all {
     build IO::Interface
     build JSON::XS
     build Linux::Inotify2
-    build Mac::FSEvents
     build Media::Scan
     build MP3::Cut::Gapless
     build Sub::Name
@@ -472,79 +258,26 @@ function build_all {
 
 function build {
     case "$1" in
-        Class::C3::XS)
-            if [ $PERL_58 ]; then
-                tar_wrapper zxvf Class-C3-XS-0.11.tar.gz
-                cd Class-C3-XS-0.11
-                patch -p0 < ../Class-C3-XS-no-ckWARN.patch
-                cp -Rv ../hints .
-                export PERL5LIB=$PERL_BASE/lib/perl5
-
-                $PERL_58 Makefile.PL INSTALL_BASE=$PERL_BASE $2
-                if [ $RUN_TESTS -eq 1 ]; then
-                    make test
-                else
-                    make
-                fi
-                if [ $? != 0 ]; then
-                    if [ $RUN_TESTS -eq 1 ]; then
-                        echo "make test failed, aborting"
-                    else
-                        echo "make failed, aborting"
-                    fi
-                    exit $?
-                fi
-                make install
-                if [ $CLEAN -eq 1 ]; then
-                    make clean
-                fi
-                cd ..
-                rm -rf Class-C3-XS-0.11
-            fi
-            ;;
-        
         Class::XSAccessor)
-            if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
-                build_module Class-XSAccessor-1.18
-                cp -pR $PERL_BASE/lib/perl5/$ARCH/Class $PERL_ARCH/
-            else
-                build_module Class-XSAccessor-1.05
-            fi
-            ;;
-        
-        Compress::Raw::Zlib)
-            if [ "$PERL_58" -o "$PERL_510" ]; then
-	            build_module Compress-Raw-Zlib-2.033
-                    cp -pR $PERL_BASE/lib/perl5/$ARCH/Compress $PERL_ARCH/
-            fi
+			build_module Class-XSAccessor-1.18
+			cp -pR $PERL_BASE/lib/perl5/$ARCH/Class $PERL_ARCH/
             ;;
         
         DBI)
-            if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
-                build_module DBI-1.628
-                cp -p $PERL_BASE/lib/perl5/$ARCH/DBI.pm $PERL_ARCH/
-                cp -pR $PERL_BASE/lib/perl5/$ARCH/DBI $PERL_ARCH/
-            else
-                build_module DBI-1.616
-            fi
+			build_module DBI-1.628 "" 0
+			cp -p $PERL_BASE/lib/perl5/$ARCH/DBI.pm $PERL_ARCH/
+			cp -pR $PERL_BASE/lib/perl5/$ARCH/DBI $PERL_ARCH/
             ;;
         
         DBD::SQLite)
-            if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
-                build_module DBI-1.628 "" 0
-            else
-                build_module DBI-1.616 "" 0
-            fi
+            # build_module DBI-1.628 "" 0
             
             # build ICU, but only if it doesn't exist in the build dir,
             # because it takes so damn long on slow platforms
             if [ ! -f build/lib/libicudata_s.a ]; then
                 tar_wrapper zxvf icu4c-4_6-src.tgz
                 cd icu/source
-                if [ "$OS" = 'Darwin' ]; then
-                    ICUFLAGS="$FLAGS $OSX_ARCH $OSX_FLAGS -DU_USING_ICU_NAMESPACE=0 -DU_CHARSET_IS_UTF8=1" # faster code for native UTF-8 systems
-                    ICUOS="MacOSX"
-                elif [ "$OS" = 'Linux' ]; then
+                if [ "$OS" = 'Linux' ]; then
                     ICUFLAGS="$FLAGS -DU_USING_ICU_NAMESPACE=0"
                     ICUOS="Linux"
                 elif [ "$OS" = 'FreeBSD' ]; then
@@ -591,36 +324,8 @@ function build {
             patch -p0 < ../DBD-SQLite-ICU.patch
             cp -Rv ../hints .
             
-            if [ $PERL_58 ]; then
-                # Running 5.8
-                export PERL5LIB=$PERL_BASE/lib/perl5
-
-                $PERL_58 Makefile.PL INSTALL_BASE=$PERL_BASE $2
-
-                if [ "$OS" = 'Darwin' ]; then
-                    # OSX does not seem to properly find -lstdc++, so we need to hack the Makefile to add it
-                    $PERL_58 -p -i -e "s{^LDLOADLIBS =.+}{LDLOADLIBS = -L$PWD/../build/lib -licudata_s -licui18n_s -licuuc_s -lstdc++}" Makefile
-                fi
-
-                $MAKE test
-                if [ $? != 0 ]; then
-                    echo "make test failed, aborting"
-                    exit $?
-                fi
-                $MAKE install
-                if [ $CLEAN -eq 1 ]; then
-                    $MAKE clean
-                fi
-    
-                cd ..
-                rm -rf DBD-SQLite-1.34_01
-            else
-                cd ..
-                if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
-                   build_module DBD-SQLite-1.34_01 "" 0
-                fi
-                build_module DBD-SQLite-1.34_01
-            fi
+			cd ..
+			build_module DBD-SQLite-1.34_01 "" 0
             
             ;;
         
@@ -637,11 +342,6 @@ function build {
             tar_wrapper zxvf EV-4.03.tar.gz
             cd EV-4.03
             patch -p0 < ../EV-llvm-workaround.patch # patch to avoid LLVM bug 9891
-            if [ "$OS" = "Darwin" ]; then
-                if [ $PERL_58 ]; then
-                    patch -p0 < ../EV-fixes.patch # patch to disable pthreads and one call to SvREADONLY
-                fi
-            fi
             cp -Rv ../hints .
             cd ..
             
@@ -697,13 +397,8 @@ function build {
         
         JSON::XS)
             build_module common-sense-2.0
-            
-            if [ "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
-                build_module JSON-XS-2.34
-                cp -pR $PERL_BASE/lib/perl5/$ARCH/JSON $PERL_ARCH/
-            else
-                build_module JSON-XS-2.3
-            fi
+			build_module JSON-XS-2.34
+			cp -pR $PERL_BASE/lib/perl5/$ARCH/JSON $PERL_ARCH/
             ;;
         
         Linux::Inotify2)
@@ -717,22 +412,12 @@ function build {
             build_module Locale-Hebrew-1.04
             ;;
 
-        Mac::FSEvents)
-            if [ "$OS" = 'Darwin' ]; then
-                build_module Mac-FSEvents-0.04 "" 0
-            fi
-            ;;
-        
         Sub::Name)
             build_module Sub-Name-0.05
             ;;
         
         YAML::LibYAML)
-            if [ "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
-                build_module YAML-LibYAML-0.35 "" 0
-            else
-                build_module YAML-LibYAML-0.35
-            fi
+            build_module YAML-LibYAML-0.35 "" 0
             ;;
         
         Audio::Scan)
@@ -1224,101 +909,18 @@ function build_ffmpeg {
         FFOPTS="$FFOPTS --arch=x86"
     fi
     
-    if [ "$OS" = "Darwin" ]; then
-        SAVED_FLAGS=$FLAGS
         
-        # Build 64-bit fork (10.6/10.7)
-        if [ "$OSX_VER" != "10.5" ]; then
-            FLAGS="-arch x86_64 -O3 -fPIC $OSX_FLAGS"      
-            CFLAGS="$FLAGS" \
-            LDFLAGS="$FLAGS" \
-                ./configure $FFOPTS --arch=x86_64
-        
-            make
-            if [ $? != 0 ]; then
-                echo "make failed"
-                exit $?
-            fi
-        
-            cp -fv libavcodec/libavcodec.a libavcodec-x86_64.a
-            cp -fv libavformat/libavformat.a libavformat-x86_64.a
-            cp -fv libavutil/libavutil.a libavutil-x86_64.a
-            cp -fv libswscale/libswscale.a libswscale-x86_64.a
-        fi
-        
-        # Build 32-bit fork (all OSX versions)
-        make clean
-        FLAGS="-arch i386 -O3 $OSX_FLAGS"      
-        CFLAGS="$FLAGS" \
-        LDFLAGS="$FLAGS" \
-            ./configure $FFOPTS --arch=x86_32
-        
-        make
-        if [ $? != 0 ]; then
-            echo "make failed"
-            exit $?
-        fi
-        
-        cp -fv libavcodec/libavcodec.a libavcodec-i386.a
-        cp -fv libavformat/libavformat.a libavformat-i386.a
-        cp -fv libavutil/libavutil.a libavutil-i386.a
-        cp -fv libswscale/libswscale.a libswscale-i386.a
-        
-        # Build PPC fork (10.5)
-        if [ "$OSX_VER" = "10.5" ]; then
-            make clean
-            FLAGS="-arch ppc -O3 $OSX_FLAGS"      
-            CFLAGS="$FLAGS" \
-            LDFLAGS="$FLAGS" \
-                ./configure $FFOPTS --arch=ppc --disable-altivec
-        
-            make
-            if [ $? != 0 ]; then
-                echo "make failed"
-                exit $?
-            fi
-        
-            cp -fv libavcodec/libavcodec.a libavcodec-ppc.a
-            cp -fv libavformat/libavformat.a libavformat-ppc.a
-            cp -fv libavutil/libavutil.a libavutil-ppc.a
-            cp -fv libswscale/libswscale.a libswscale-ppc.a
-        fi
-        
-        # Combine the forks
-        if [ "$OSX_VER" = "10.5" ]; then
-            lipo -create libavcodec-i386.a libavcodec-ppc.a -output libavcodec.a
-            lipo -create libavformat-i386.a libavformat-ppc.a -output libavformat.a
-            lipo -create libavutil-i386.a libavutil-ppc.a -output libavutil.a
-            lipo -create libswscale-i386.a libswscale-ppc.a -output libswscale.a
-        else
-            lipo -create libavcodec-x86_64.a libavcodec-i386.a -output libavcodec.a
-            lipo -create libavformat-x86_64.a libavformat-i386.a -output libavformat.a
-            lipo -create libavutil-x86_64.a libavutil-i386.a -output libavutil.a
-            lipo -create libswscale-x86_64.a libswscale-i386.a -output libswscale.a
-        fi
-        
-        # Install and replace libs with universal versions
-        make install
-        cp -f libavcodec.a $BUILD/lib/libavcodec.a
-        cp -f libavformat.a $BUILD/lib/libavformat.a
-        cp -f libavutil.a $BUILD/lib/libavutil.a
-        cp -f libswscale.a $BUILD/lib/libswscale.a
-        
-        FLAGS=$SAVED_FLAGS
-        cd ..
-    else           
-        CFLAGS="$FLAGS -O3" \
-        LDFLAGS="$FLAGS -O3" \
-            ./configure $FFOPTS
-        
-        $MAKE
-        if [ $? != 0 ]; then
-            echo "make failed"
-            exit $?
-        fi
-        $MAKE install
-        cd ..
-    fi
+	CFLAGS="$FLAGS -O3" \
+	LDFLAGS="$FLAGS -O3" \
+		./configure $FFOPTS
+	
+	$MAKE
+	if [ $? != 0 ]; then
+		echo "make failed"
+		exit $?
+	fi
+	$MAKE install
+	cd ..
     
     rm -rf ffmpeg-0.8.4
 }
@@ -1387,10 +989,6 @@ find $BUILD -name '*.packlist' -exec rm -f {} \;
 
 # create our directory structure
 # rsync is used to avoid copying non-binary modules or other extra stuff
-if [ "$PERL_512" -o "$PERL_514" -o "$PERL_516" -o "$PERL_518" -o "$PERL_520" -o "$PERL_522" ]; then
-    # Check for Perl using use64bitint and add -64int
-    ARCH=`$PERL_BIN -MConfig -le 'print $Config{archname}' | sed 's/gnu-//' | sed 's/^i[3456]86-/i386-/' | sed 's/armv.*?-/arm-/' `
-fi
 mkdir -p $PERL_ARCH/$ARCH
 rsync -amv --include='*/' --include='*.so' --include='*.bundle' --include='autosplit.ix' --exclude='*' $PERL_BASE/lib/perl5/*/auto $PERL_ARCH/$ARCH/
 
