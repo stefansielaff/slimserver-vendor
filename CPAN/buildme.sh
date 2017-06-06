@@ -116,17 +116,14 @@ if [ "$PERL_BIN" = "" ]; then
     PERL_VERSION=`perl -MConfig -le '$Config{version} =~ /(\d+.\d+)\./; print $1'`
     
     case "$PERL_VERSION" in
-    "5.18")
-        PERL_518=$PERL_BIN
-        ;;
-    "5.20")
-        PERL_520=$PERL_BIN
-        ;;
     "5.22")
         PERL_522=$PERL_BIN
         ;;
     "5.24")
         PERL_524=$PERL_BIN
+        ;;
+    "5.26")
+        PERL_526=$PERL_BIN
         ;;
     *)
         echo "Failed to find supported Perl version for '$PERL_BIN'"
