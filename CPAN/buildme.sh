@@ -102,6 +102,7 @@ PERL_ARCH=$BUILD/arch/perl5x
 # try to use default perl version
 if [ "$PERL_BIN" = "" ]; then
     PERL_BIN=`which perl`
+	PERL_VERSION=`perl -MConfig -le '$Config{version} =~ /(\d+.\d+)\./; print $1'`
     echo "Building with Perl $PERL_VERSION at $PERL_BIN"
     PERL_BASE=$BUILD/$PERL_VERSION
     PERL_ARCH=$BUILD/arch/$PERL_VERSION
