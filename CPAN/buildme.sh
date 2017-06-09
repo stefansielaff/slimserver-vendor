@@ -61,7 +61,7 @@ else
     exit
 fi
 
-for i in gcc cpp rsync make rsync ; do
+for i in gcc cpp rsync make ; do
     which $i > /dev/null
     if [ $? -ne 0 ] ; then
         echo "$i not found - please install it"
@@ -89,17 +89,6 @@ if [ "$OS" = "Linux" ]; then
 	done
 fi
 
-if [ "$OS" = "FreeBSD" ]; then
-	#for i in libgif libz libgd ; do
-	for i in libz libgd ; do
-	    ldconfig -r | grep "${i}.so" > /dev/null #On FreeBSD flag -r should be used, there is no -p
-	    if [ $? -ne 0 ] ; then
-	        echo "$i not found - please install it"
-	        exit 1
-	    fi
-	done
-fi
-
 find /usr/lib/ -maxdepth 1 | grep libungif
 if [ $? -eq 0 ] ; then
     echo "ON SOME PLATFORMS (Ubuntu/Debian at least) THE ABOVE LIBRARIES MAY NEED TO BE TEMPORARILY REMOVED TO ALLOW THE BUILD TO WORK"
@@ -113,45 +102,12 @@ PERL_ARCH=$BUILD/arch/perl5x
 # try to use default perl version
 if [ "$PERL_BIN" = "" ]; then
     PERL_BIN=`which perl`
-    PERL_VERSION=`perl -MConfig -le '$Config{version} =~ /(\d+.\d+)\./; print $1'`
-    
-    case "$PERL_VERSION" in
-    "5.22")
-        PERL_522=$PERL_BIN
-        ;;
-    "5.24")
-        PERL_524=$PERL_BIN
-        ;;
-    "5.26")
-        PERL_526=$PERL_BIN
-        ;;
-    *)
-        echo "Failed to find supported Perl version for '$PERL_BIN'"
-        exit
-        ;;
-    esac
-
     echo "Building with Perl $PERL_VERSION at $PERL_BIN"
     PERL_BASE=$BUILD/$PERL_VERSION
     PERL_ARCH=$BUILD/arch/$PERL_VERSION
 fi
 
-# FreeBSD's make sucks
-if [ "$OS" = "FreeBSD" ]; then
-    if [ ! -x /usr/local/bin/gmake ]; then
-        echo "ERROR: Please install GNU make (gmake)"
-        exit
-    fi
-    export GNUMAKE=/usr/local/bin/gmake
-    export MAKE=/usr/local/bin/gmake
-else
-    # Support a newer make if available, needed on ReadyNAS                                                                              
-    if [ -x /usr/local/bin/make ]; then                                               
-        export MAKE=/usr/local/bin/make                                         
-    else                                                                           
-        export MAKE=/usr/bin/make                        
-    fi
-fi
+export MAKE=/usr/bin/make                        
 
 # Clean up
 if [ $CLEAN -eq 1 ]; then
@@ -230,14 +186,8 @@ function build_module {
 function build_all {
     build Audio::Scan
     build Class::XSAccessor
-    build DBI
-#   build DBD::mysql
-    build DBD::SQLite
-##    build Digest::SHA1
-##    build EV
     build Encode::Detect
     build HTML::Parser
-    # XXX - Image::Scale requires libjpeg-turbo - which requires nasm 2.07 or later (install from http://www.macports.org/)
     build Image::Scale
     build IO::AIO
     build IO::Interface
@@ -248,9 +198,6 @@ function build_all {
     build Sub::Name
     build Template
     build XML::Parser
-    build YAML::LibYAML
-#    build Font::FreeType
-#    build Locale::Hebrew
 }
 
 function build {
@@ -258,93 +205,6 @@ function build {
         Class::XSAccessor)
 			build_module Class-XSAccessor-1.18
 			cp -pR $PERL_BASE/lib/perl5/$ARCH/Class $PERL_ARCH/
-            ;;
-        
-        DBI)
-			build_module DBI-1.628 "" 0
-			cp -p $PERL_BASE/lib/perl5/$ARCH/DBI.pm $PERL_ARCH/
-			cp -pR $PERL_BASE/lib/perl5/$ARCH/DBI $PERL_ARCH/
-            ;;
-        
-        DBD::SQLite)
-            # build_module DBI-1.628 "" 0
-            
-            # build ICU, but only if it doesn't exist in the build dir,
-            # because it takes so damn long on slow platforms
-            if [ ! -f build/lib/libicudata_s.a ]; then
-                tar_wrapper zxvf icu4c-4_6-src.tgz
-                cd icu/source
-                if [ "$OS" = 'Linux' ]; then
-                    ICUFLAGS="$FLAGS -DU_USING_ICU_NAMESPACE=0"
-                    ICUOS="Linux"
-                elif [ "$OS" = 'FreeBSD' ]; then
-                    ICUFLAGS="$FLAGS -DU_USING_ICU_NAMESPACE=0"
-                    ICUOS="FreeBSD"
-                fi
-                CFLAGS="$ICUFLAGS" CXXFLAGS="$ICUFLAGS" LDFLAGS="$FLAGS $OSX_ARCH $OSX_FLAGS" \
-                    ./runConfigureICU $ICUOS --prefix=$BUILD --enable-static --with-data-packaging=archive
-                $MAKE
-                if [ $? != 0 ]; then
-                    echo "make failed"
-                    exit $?
-                fi
-                $MAKE install
-            
-                cd ../..                
-                rm -rf icu
-
-                # Symlink static versions of libraries
-                cd build/lib
-                if [ "$OS" = 'FreeBSD' ]; then
-                    # FreeBSD has different library names (?)
-                    ln -sf libsicudata.a libicudata.a
-                    ln -sf libsicui18n.a libicui18n.a
-                    ln -sf libsicuuc.a libicuuc.a
-                fi
-            
-                ln -sf libicudata.a libicudata_s.a
-                ln -sf libicui18n.a libicui18n_s.a
-                ln -sf libicuuc.a libicuuc_s.a 
-                cd ../..
-            fi
-            
-            # Point to data directory for test suite
-            export ICU_DATA=$BUILD/share/icu/4.6
-            
-            # Replace huge data file with smaller one containing only our collations
-            rm -f $BUILD/share/icu/4.6/icudt46*.dat
-            cp -v icudt46*.dat $BUILD/share/icu/4.6
-            
-            # Custom build for ICU support
-            tar_wrapper zxvf DBD-SQLite-1.34_01.tar.gz
-            cd DBD-SQLite-1.34_01
-            patch -p0 < ../DBD-SQLite-ICU.patch
-            cp -Rv ../hints .
-            
-			cd ..
-			build_module DBD-SQLite-1.34_01 "" 0
-            
-            ;;
-        
-        Digest::SHA1)
-            build_module Digest-SHA1-2.13
-            ;;
-        
-        EV)
-            build_module common-sense-2.0
-
-            # custom build to apply pthread patch
-            export PERL_MM_USE_DEFAULT=1
-            
-            tar_wrapper zxvf EV-4.03.tar.gz
-            cd EV-4.03
-            patch -p0 < ../EV-llvm-workaround.patch # patch to avoid LLVM bug 9891
-            cp -Rv ../hints .
-            cd ..
-            
-            build_module EV-4.03
-
-            export PERL_MM_USE_DEFAULT=
             ;;
         
         Encode::Detect)
@@ -404,17 +264,9 @@ function build {
                 build_module Linux-Inotify2-1.21
             fi
             ;;
-        
-        Locale::Hebrew)
-            build_module Locale-Hebrew-1.04
-            ;;
 
         Sub::Name)
             build_module Sub-Name-0.05
-            ;;
-        
-        YAML::LibYAML)
-            build_module YAML-LibYAML-0.35 "" 0
             ;;
         
         Audio::Scan)
@@ -440,38 +292,6 @@ function build {
             make # minor test failure, so don't test
             build_module Template-Toolkit-2.21 "INSTALL_BASE=$PERL_BASE TT_ACCEPT=y TT_EXAMPLES=n TT_EXTRAS=n" 0
 
-            ;;
-        
-        DBD::mysql)
-            # Build libmysqlclient
-            tar_wrapper jxvf mysql-5.1.37.tar.bz2
-            cd mysql-5.1.37
-            CC=gcc CXX=gcc \
-            CFLAGS="-O3 -fno-omit-frame-pointer $FLAGS $OSX_ARCH $OSX_FLAGS" \
-            CXXFLAGS="-O3 -fno-omit-frame-pointer -felide-constructors -fno-exceptions -fno-rtti $FLAGS $OSX_ARCH $OSX_FLAGS" \
-                ./configure --prefix=$BUILD \
-                --disable-dependency-tracking \
-                --enable-thread-safe-client \
-                --without-server --disable-shared --without-docs --without-man
-            make
-            if [ $? != 0 ]; then
-                echo "make failed"
-                exit $?
-            fi
-            make install
-            cd ..
-            rm -rf mysql-5.1.37
-
-            # DBD::mysql custom, statically linked with libmysqlclient
-            tar_wrapper zxvf DBD-mysql-3.0002.tar.gz
-            cd DBD-mysql-3.0002
-            cp -Rv ../hints .
-            mkdir mysql-static
-            cp $BUILD/lib/mysql/libmysqlclient.a mysql-static
-            cd ..
-            
-            build_module DBD-mysql-3.0002 "--mysql_config=$BUILD/bin/mysql_config --libs=\"-Lmysql-static -lmysqlclient -lz -lm\" INSTALL_BASE=$PERL_BASE"
-            
             ;;
         
         XML::Parser)
@@ -507,54 +327,6 @@ function build {
             build_module XML-Parser-2.41 "INSTALL_BASE=$PERL_BASE EXPATLIBPATH=$BUILD/lib EXPATINCPATH=$BUILD/include"
             
             rm -rf expat-2.0.1
-            ;;
-        
-        Font::FreeType)
-            # build freetype
-            tar_wrapper zxvf freetype-2.4.2.tar.gz
-            cd freetype-2.4.2
-            
-            # Disable features we don't need for CODE2000
-            cp -fv ../freetype-ftoption.h objs/ftoption.h
-            
-            # Disable modules we don't need for CODE2000
-            cp -fv ../freetype-modules.cfg modules.cfg
-            
-            # libfreetype.a size (i386/x86_64 universal binary):
-            #   1634288 (default)
-            #    461984 (with custom ftoption.h/modules.cfg)
-            
-            CFLAGS="$FLAGS $OSX_ARCH $OSX_FLAGS" \
-            LDFLAGS="$FLAGS $OSX_ARCH $OSX_FLAGS" \
-                ./configure --prefix=$BUILD
-            $MAKE # needed for FreeBSD to use gmake 
-            if [ $? != 0 ]; then
-                echo "make failed"
-                exit $?
-            fi
-            $MAKE install
-            cd ..
-            
-            # Symlink static version of library to avoid OSX linker choosing dynamic versions
-            cd build/lib
-            ln -sf libfreetype.a libfreetype_s.a
-            cd ../..
-
-            tar_wrapper zxvf Font-FreeType-0.03.tar.gz
-            cd Font-FreeType-0.03
-            
-            # Build statically
-            patch -p0 < ../Font-FreeType-Makefile.patch
-            
-            # Disable some functions so we can compile out more freetype modules
-            patch -p0 < ../Font-FreeType-lean.patch
-            
-            cp -Rv ../hints .
-            cd ..
-            
-            build_module Font-FreeType-0.03
-            
-            rm -rf freetype-2.4.2
             ;;
         
         Media::Scan)            
@@ -970,15 +742,9 @@ fi
 # Reset PERL5LIB
 export PERL5LIB=
 
-if [ "$OS" = 'Darwin' ]; then
-    # strip -S on all bundle files
-    find $BUILD -name '*.bundle' -exec chmod u+w {} \;
-    find $BUILD -name '*.bundle' -exec strip -S {} \;
-elif [ "$OS" = 'Linux' -o "$OS" = "FreeBSD" ]; then
-    # strip all so files
-    find $BUILD -name '*.so' -exec chmod u+w {} \;
-    find $BUILD -name '*.so' -exec strip {} \;
-fi
+# strip all so files
+find $BUILD -name '*.so' -exec chmod u+w {} \;
+find $BUILD -name '*.so' -exec strip {} \;
 
 # clean out useless .bs/.packlist files, etc
 find $BUILD -name '*.bs' -exec rm -f {} \;
