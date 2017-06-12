@@ -8,7 +8,7 @@
 
 # Require modules to pass tests
 RUN_TESTS=1
-USE_HINTS=1
+USE_HINTS=0
 CLEAN=1
 FLAGS="-fPIC"
 
@@ -188,17 +188,12 @@ function build_all {
     build Audio::Scan
     build Class::XSAccessor
     build Encode::Detect
-    build HTML::Parser
     build Image::Scale
     build IO::AIO
     build IO::Interface
-    build JSON::XS
     build Linux::Inotify2
     build Media::Scan
     build MP3::Cut::Gapless
-    build Sub::Name
-    build Template
-    build XML::Parser
 }
 
 function build {
@@ -213,11 +208,6 @@ function build {
             build_module ExtUtils-CBuilder-0.260301
             build_module Module-Build-0.35 "" 0
             build_module Encode-Detect-1.00
-            ;;
-        
-        HTML::Parser)
-            build_module HTML-Tagset-3.20
-            build_module HTML-Parser-3.68
             ;;
 
         Image::Scale)
@@ -253,21 +243,11 @@ function build {
             build_module IO-Interface-1.06
             ;;
         
-        JSON::XS)
-            build_module common-sense-2.0
-			build_module JSON-XS-2.34
-			cp -pR $PERL_BASE/lib/perl5/$ARCH/JSON $PERL_ARCH/
-            ;;
-        
         Linux::Inotify2)
             if [ "$OS" = "Linux" ]; then
                 build_module common-sense-2.0
                 build_module Linux-Inotify2-1.21
             fi
-            ;;
-
-        Sub::Name)
-            build_module Sub-Name-0.05
             ;;
         
         Audio::Scan)
@@ -281,54 +261,6 @@ function build {
             build_module Audio-Cuefile-Parser-0.02
             build_module MP3-Cut-Gapless-0.03
             ;;  
-        
-        Template)
-            # Template, custom build due to 2 Makefile.PL's
-            tar_wrapper zxvf Template-Toolkit-2.21.tar.gz
-            cd Template-Toolkit-2.21
-            cp -Rv ../hints .
-            cp -Rv ../hints ./xs
-            cd ..
-
-            make # minor test failure, so don't test
-            build_module Template-Toolkit-2.21 "INSTALL_BASE=$PERL_BASE TT_ACCEPT=y TT_EXAMPLES=n TT_EXTRAS=n" 0
-
-            ;;
-        
-        XML::Parser)
-            # build expat
-            tar_wrapper zxvf expat-2.0.1.tar.gz
-            cd expat-2.0.1
-            CFLAGS="$FLAGS $OSX_ARCH $OSX_FLAGS" \
-            LDFLAGS="$FLAGS $OSX_ARCH $OSX_FLAGS" \
-                ./configure --prefix=$BUILD \
-                --disable-dependency-tracking
-            make
-            if [ $? != 0 ]; then
-                echo "make failed"
-                exit $?
-            fi
-            make install
-            cd ..
-
-            # Symlink static versions of libraries to avoid OSX linker choosing dynamic versions
-            cd build/lib
-            ln -sf libexpat.a libexpat_s.a
-            cd ../..
-
-            # XML::Parser custom, built against expat
-            tar_wrapper zxvf XML-Parser-2.41.tar.gz
-            cd XML-Parser-2.41
-            cp -Rv ../hints .
-            cp -Rv ../hints ./Expat # needed for second Makefile.PL
-            patch -p0 < ../XML-Parser-Expat-Makefile.patch
-            
-            cd ..
-            
-            build_module XML-Parser-2.41 "INSTALL_BASE=$PERL_BASE EXPATLIBPATH=$BUILD/lib EXPATINCPATH=$BUILD/include"
-            
-            rm -rf expat-2.0.1
-            ;;
         
         Media::Scan)            
             build_ffmpeg
