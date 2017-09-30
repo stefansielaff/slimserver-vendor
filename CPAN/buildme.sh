@@ -148,8 +148,8 @@ function build_all {
     build IO::AIO
     build IO::Interface
     build Linux::Inotify2
-    build Media::Scan
     build MP3::Cut::Gapless
+    # build Media::Scan
 }
 
 function build {
@@ -195,7 +195,7 @@ function build {
             tar_wrapper zxvf libmediascan-0.1.tar.gz
             cd libmediascan-0.1
 
-	    patch -p2 < ../libmediascan-0.1-arch.patch
+			patch -p2 < ../libmediascan-0.1-arch.patch
 
             CFLAGS="-I$BUILD/include $FLAGS $OSX_ARCH $OSX_FLAGS -O3" \
             LDFLAGS="-L$BUILD/lib $FLAGS $OSX_ARCH $OSX_FLAGS -O3" \
